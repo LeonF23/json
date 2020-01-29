@@ -2411,7 +2411,7 @@ struct adl_serializer;
 template<template<typename U, typename V, typename... Args> class ObjectType =
          std::map,
          template<typename U, typename... Args> class ArrayType = std::vector,
-         class StringType = std::string, class BooleanType = bool,
+         class StringType = std::u8string, class BooleanType = bool,
          class NumberIntegerType = std::int64_t,
          class NumberUnsignedType = std::uint64_t,
          class NumberFloatType = double,
@@ -3904,7 +3904,7 @@ could be any arbitrary value which is not a valid char value.
 struct input_adapter_protocol
 {
     /// get a character [0,255] or std::char_traits<char>::eof().
-    virtual std::char_traits<char>::int_type get_character() = 0;
+    virtual std::char_traits<char8_t>::int_type get_character() = 0;
     virtual ~input_adapter_protocol() = default;
 };
 
@@ -3930,7 +3930,7 @@ class file_input_adapter : public input_adapter_protocol
     file_input_adapter& operator=(file_input_adapter&&) = default;
     ~file_input_adapter() override = default;
 
-    std::char_traits<char>::int_type get_character() noexcept override
+    std::char_traits<char8_t>::int_type get_character() noexcept override
     {
         return std::fgetc(m_file);
     }
@@ -3973,7 +3973,7 @@ class input_stream_adapter : public input_adapter_protocol
     // std::istream/std::streambuf use std::char_traits<char>::to_int_type, to
     // ensure that std::char_traits<char>::eof() and the character 0xFF do not
     // end up as the same value, eg. 0xFFFFFFFF.
-    std::char_traits<char>::int_type get_character() override
+    std::char_traits<char8_t>::int_type get_character() override
     {
         auto res = sb.sbumpc();
         // set eof manually, as we don't use the istream interface.
@@ -3994,7 +3994,7 @@ class input_stream_adapter : public input_adapter_protocol
 class input_buffer_adapter : public input_adapter_protocol
 {
   public:
-    input_buffer_adapter(const char* b, const std::size_t l) noexcept
+    input_buffer_adapter(const char8_t* b, const std::size_t l) noexcept
         : cursor(b), limit(b == nullptr ? nullptr : (b + l))
     {}
 
@@ -4005,22 +4005,22 @@ class input_buffer_adapter : public input_adapter_protocol
     input_buffer_adapter& operator=(input_buffer_adapter&&) = delete;
     ~input_buffer_adapter() override = default;
 
-    std::char_traits<char>::int_type get_character() noexcept override
+    std::char_traits<char8_t>::int_type get_character() noexcept override
     {
         if (JSON_HEDLEY_LIKELY(cursor < limit))
         {
             assert(cursor != nullptr and limit != nullptr);
-            return std::char_traits<char>::to_int_type(*(cursor++));
+            return std::char_traits<char8_t>::to_int_type(*(cursor++));
         }
 
-        return std::char_traits<char>::eof();
+        return std::char_traits<char8_t>::eof();
     }
 
   private:
     /// pointer to the current character
-    const char* cursor;
+    const char8_t* cursor;
     /// pointer past the last character
-    const char* const limit;
+    const char8_t* const limit;
 };
 
 template<typename WideStringType, size_t T>
@@ -4029,7 +4029,7 @@ struct wide_string_input_helper
     // UTF-32
     static void fill_buffer(const WideStringType& str,
                             size_t& current_wchar,
-                            std::array<std::char_traits<char>::int_type, 4>& utf8_bytes,
+                            std::array<std::char_traits<char8_t>::int_type, 4>& utf8_bytes,
                             size_t& utf8_bytes_index,
                             size_t& utf8_bytes_filled)
     {
@@ -4037,7 +4037,7 @@ struct wide_string_input_helper
 
         if (current_wchar == str.size())
         {
-            utf8_bytes[0] = std::char_traits<char>::eof();
+            utf8_bytes[0] = std::char_traits<char8_t>::eof();
             utf8_bytes_filled = 1;
         }
         else
@@ -4048,34 +4048,34 @@ struct wide_string_input_helper
             // UTF-32 to UTF-8 encoding
             if (wc < 0x80)
             {
-                utf8_bytes[0] = static_cast<std::char_traits<char>::int_type>(wc);
+                utf8_bytes[0] = static_cast<std::char_traits<char8_t>::int_type>(wc);
                 utf8_bytes_filled = 1;
             }
             else if (wc <= 0x7FF)
             {
-                utf8_bytes[0] = static_cast<std::char_traits<char>::int_type>(0xC0u | ((wc >> 6u) & 0x1Fu));
-                utf8_bytes[1] = static_cast<std::char_traits<char>::int_type>(0x80u | (wc & 0x3Fu));
+                utf8_bytes[0] = static_cast<std::char_traits<char8_t>::int_type>(0xC0u | ((wc >> 6u) & 0x1Fu));
+                utf8_bytes[1] = static_cast<std::char_traits<char8_t>::int_type>(0x80u | (wc & 0x3Fu));
                 utf8_bytes_filled = 2;
             }
             else if (wc <= 0xFFFF)
             {
-                utf8_bytes[0] = static_cast<std::char_traits<char>::int_type>(0xE0u | ((wc >> 12u) & 0x0Fu));
-                utf8_bytes[1] = static_cast<std::char_traits<char>::int_type>(0x80u | ((wc >> 6u) & 0x3Fu));
-                utf8_bytes[2] = static_cast<std::char_traits<char>::int_type>(0x80u | (wc & 0x3Fu));
+                utf8_bytes[0] = static_cast<std::char_traits<char8_t>::int_type>(0xE0u | ((wc >> 12u) & 0x0Fu));
+                utf8_bytes[1] = static_cast<std::char_traits<char8_t>::int_type>(0x80u | ((wc >> 6u) & 0x3Fu));
+                utf8_bytes[2] = static_cast<std::char_traits<char8_t>::int_type>(0x80u | (wc & 0x3Fu));
                 utf8_bytes_filled = 3;
             }
             else if (wc <= 0x10FFFF)
             {
-                utf8_bytes[0] = static_cast<std::char_traits<char>::int_type>(0xF0u | ((wc >> 18u) & 0x07u));
-                utf8_bytes[1] = static_cast<std::char_traits<char>::int_type>(0x80u | ((wc >> 12u) & 0x3Fu));
-                utf8_bytes[2] = static_cast<std::char_traits<char>::int_type>(0x80u | ((wc >> 6u) & 0x3Fu));
-                utf8_bytes[3] = static_cast<std::char_traits<char>::int_type>(0x80u | (wc & 0x3Fu));
+                utf8_bytes[0] = static_cast<std::char_traits<char8_t>::int_type>(0xF0u | ((wc >> 18u) & 0x07u));
+                utf8_bytes[1] = static_cast<std::char_traits<char8_t>::int_type>(0x80u | ((wc >> 12u) & 0x3Fu));
+                utf8_bytes[2] = static_cast<std::char_traits<char8_t>::int_type>(0x80u | ((wc >> 6u) & 0x3Fu));
+                utf8_bytes[3] = static_cast<std::char_traits<char8_t>::int_type>(0x80u | (wc & 0x3Fu));
                 utf8_bytes_filled = 4;
             }
             else
             {
                 // unknown character
-                utf8_bytes[0] = static_cast<std::char_traits<char>::int_type>(wc);
+                utf8_bytes[0] = static_cast<std::char_traits<char8_t>::int_type>(wc);
                 utf8_bytes_filled = 1;
             }
         }
@@ -4088,7 +4088,7 @@ struct wide_string_input_helper<WideStringType, 2>
     // UTF-16
     static void fill_buffer(const WideStringType& str,
                             size_t& current_wchar,
-                            std::array<std::char_traits<char>::int_type, 4>& utf8_bytes,
+                            std::array<std::char_traits<char8_t>::int_type, 4>& utf8_bytes,
                             size_t& utf8_bytes_index,
                             size_t& utf8_bytes_filled)
     {
@@ -4096,7 +4096,7 @@ struct wide_string_input_helper<WideStringType, 2>
 
         if (current_wchar == str.size())
         {
-            utf8_bytes[0] = std::char_traits<char>::eof();
+            utf8_bytes[0] = std::char_traits<char8_t>::eof();
             utf8_bytes_filled = 1;
         }
         else
@@ -4107,20 +4107,20 @@ struct wide_string_input_helper<WideStringType, 2>
             // UTF-16 to UTF-8 encoding
             if (wc < 0x80)
             {
-                utf8_bytes[0] = static_cast<std::char_traits<char>::int_type>(wc);
+                utf8_bytes[0] = static_cast<std::char_traits<char8_t>::int_type>(wc);
                 utf8_bytes_filled = 1;
             }
             else if (wc <= 0x7FF)
             {
-                utf8_bytes[0] = static_cast<std::char_traits<char>::int_type>(0xC0u | ((wc >> 6u)));
-                utf8_bytes[1] = static_cast<std::char_traits<char>::int_type>(0x80u | (wc & 0x3Fu));
+                utf8_bytes[0] = static_cast<std::char_traits<char8_t>::int_type>(0xC0u | ((wc >> 6u)));
+                utf8_bytes[1] = static_cast<std::char_traits<char8_t>::int_type>(0x80u | (wc & 0x3Fu));
                 utf8_bytes_filled = 2;
             }
             else if (0xD800 > wc or wc >= 0xE000)
             {
-                utf8_bytes[0] = static_cast<std::char_traits<char>::int_type>(0xE0u | ((wc >> 12u)));
-                utf8_bytes[1] = static_cast<std::char_traits<char>::int_type>(0x80u | ((wc >> 6u) & 0x3Fu));
-                utf8_bytes[2] = static_cast<std::char_traits<char>::int_type>(0x80u | (wc & 0x3Fu));
+                utf8_bytes[0] = static_cast<std::char_traits<char8_t>::int_type>(0xE0u | ((wc >> 12u)));
+                utf8_bytes[1] = static_cast<std::char_traits<char8_t>::int_type>(0x80u | ((wc >> 6u) & 0x3Fu));
+                utf8_bytes[2] = static_cast<std::char_traits<char8_t>::int_type>(0x80u | (wc & 0x3Fu));
                 utf8_bytes_filled = 3;
             }
             else
@@ -4129,17 +4129,17 @@ struct wide_string_input_helper<WideStringType, 2>
                 {
                     const auto wc2 = static_cast<unsigned int>(str[current_wchar++]);
                     const auto charcode = 0x10000u + (((wc & 0x3FFu) << 10u) | (wc2 & 0x3FFu));
-                    utf8_bytes[0] = static_cast<std::char_traits<char>::int_type>(0xF0u | (charcode >> 18u));
-                    utf8_bytes[1] = static_cast<std::char_traits<char>::int_type>(0x80u | ((charcode >> 12u) & 0x3Fu));
-                    utf8_bytes[2] = static_cast<std::char_traits<char>::int_type>(0x80u | ((charcode >> 6u) & 0x3Fu));
-                    utf8_bytes[3] = static_cast<std::char_traits<char>::int_type>(0x80u | (charcode & 0x3Fu));
+                    utf8_bytes[0] = static_cast<std::char_traits<char8_t>::int_type>(0xF0u | (charcode >> 18u));
+                    utf8_bytes[1] = static_cast<std::char_traits<char8_t>::int_type>(0x80u | ((charcode >> 12u) & 0x3Fu));
+                    utf8_bytes[2] = static_cast<std::char_traits<char8_t>::int_type>(0x80u | ((charcode >> 6u) & 0x3Fu));
+                    utf8_bytes[3] = static_cast<std::char_traits<char8_t>::int_type>(0x80u | (charcode & 0x3Fu));
                     utf8_bytes_filled = 4;
                 }
                 else
                 {
                     // unknown character
                     ++current_wchar;
-                    utf8_bytes[0] = static_cast<std::char_traits<char>::int_type>(wc);
+                    utf8_bytes[0] = static_cast<std::char_traits<char8_t>::int_type>(wc);
                     utf8_bytes_filled = 1;
                 }
             }
@@ -4155,7 +4155,7 @@ class wide_string_input_adapter : public input_adapter_protocol
         : str(w)
     {}
 
-    std::char_traits<char>::int_type get_character() noexcept override
+    std::char_traits<char8_t>::int_type get_character() noexcept override
     {
         // check if buffer needs to be filled
         if (utf8_bytes_index == utf8_bytes_filled)
@@ -4186,7 +4186,7 @@ class wide_string_input_adapter : public input_adapter_protocol
     std::size_t current_wchar = 0;
 
     /// a buffer for UTF-8 bytes
-    std::array<std::char_traits<char>::int_type, 4> utf8_bytes = {{0, 0, 0, 0}};
+    std::array<std::char_traits<char8_t>::int_type, 4> utf8_bytes = {{0, 0, 0, 0}};
 
     /// index to the utf8_codes array for the next valid byte
     std::size_t utf8_bytes_index = 0;
@@ -4270,7 +4270,7 @@ class input_adapter
         if (JSON_HEDLEY_LIKELY(len > 0))
         {
             // there is at least one element: use the address of first
-            ia = std::make_shared<input_buffer_adapter>(reinterpret_cast<const char*>(&(*first)), len);
+            ia = std::make_shared<input_buffer_adapter>(reinterpret_cast<const char8_t*>(&(*first)), len);
         }
         else
         {
@@ -5248,7 +5248,7 @@ class binary_reader
                 get();
             }
 
-            if (JSON_HEDLEY_UNLIKELY(current != std::char_traits<char>::eof()))
+            if (JSON_HEDLEY_UNLIKELY(current != std::char_traits<char8_t>::eof()))
             {
                 return sax->parse_error(chars_read, get_token_string(),
                                         parse_error::create(110, chars_read, exception_message(format, "expected end of input; last byte: 0x" + get_token_string(), "value")));
@@ -5318,7 +5318,7 @@ class binary_reader
             {
                 return true;
             }
-            *out++ = static_cast<char>(current);
+            *out++ = static_cast<char8_t>(current);
         }
 
         return true;
@@ -5344,7 +5344,7 @@ class binary_reader
             return sax->parse_error(chars_read, last_token, parse_error::create(112, chars_read, exception_message(input_format_t::bson, "string length must be at least 1, is " + std::to_string(len), "string")));
         }
 
-        return get_string(input_format_t::bson, len - static_cast<NumberType>(1), result) and get() != std::char_traits<char>::eof();
+        return get_string(input_format_t::bson, len - static_cast<NumberType>(1), result) and get() != std::char_traits<char8_t>::eof();
     }
 
     /*!
@@ -5499,7 +5499,7 @@ class binary_reader
         switch (get_char ? get() : current)
         {
             // EOF
-            case std::char_traits<char>::eof():
+            case std::char_traits<char8_t>::eof():
                 return unexpect_eof(input_format_t::cbor, "value");
 
             // Integer 0x00..0x17 (0..23)
@@ -6018,7 +6018,7 @@ class binary_reader
         switch (get())
         {
             // EOF
-            case std::char_traits<char>::eof():
+            case std::char_traits<char8_t>::eof():
                 return unexpect_eof(input_format_t::msgpack, "value");
 
             // positive fixint
@@ -6707,7 +6707,7 @@ class binary_reader
     {
         switch (prefix)
         {
-            case std::char_traits<char>::eof():  // EOF
+            case std::char_traits<char8_t>::eof():  // EOF
                 return unexpect_eof(input_format_t::ubjson, "value");
 
             case 'T':  // true
@@ -6772,7 +6772,7 @@ class binary_reader
                     auto last_token = get_token_string();
                     return sax->parse_error(chars_read, last_token, parse_error::create(113, chars_read, exception_message(input_format_t::ubjson, "byte after 'C' must be in range 0x00..0x7F; last byte: 0x" + last_token, "char")));
                 }
-                string_t s(1, static_cast<char>(current));
+                string_t s(1, static_cast<char8_t>(current));
                 return sax->string(s);
             }
 
@@ -7046,9 +7046,9 @@ class binary_reader
     @return whether the last read character is not EOF
     */
     JSON_HEDLEY_NON_NULL(3)
-    bool unexpect_eof(const input_format_t format, const char* context) const
+    bool unexpect_eof(const input_format_t format, const char8_t* context) const
     {
-        if (JSON_HEDLEY_UNLIKELY(current == std::char_traits<char>::eof()))
+        if (JSON_HEDLEY_UNLIKELY(current == std::char_traits<char8_t>::eof()))
         {
             return sax->parse_error(chars_read, "<end of file>",
                                     parse_error::create(110, chars_read, exception_message(format, "unexpected end of input", context)));
@@ -7108,7 +7108,7 @@ class binary_reader
     input_adapter_t ia = nullptr;
 
     /// the current character
-    int current = std::char_traits<char>::eof();
+    int current = std::char_traits<char8_t>::eof();
 
     /// the number of characters read
     std::size_t chars_read = 0;
@@ -7376,7 +7376,7 @@ class lexer
             switch (get())
             {
                 // end of file while parsing string
-                case std::char_traits<char>::eof():
+                case std::char_traits<char8_t>::eof():
                 {
                     error_message = "invalid string: missing closing quote";
                     return token_type::parse_error;
@@ -8290,10 +8290,10 @@ scan_number_done:
         // try to parse integers first and fall back to floats
         if (number_type == token_type::value_unsigned)
         {
-            const auto x = std::strtoull(token_buffer.data(), &endptr, 10);
+            const auto x = std::strtoull(reinterpret_cast<char*>(token_buffer.data()), &endptr, 10);
 
             // we checked the number format before
-            assert(endptr == token_buffer.data() + token_buffer.size());
+            assert(endptr == reinterpret_cast<char*>(token_buffer.data()) + token_buffer.size());
 
             if (errno == 0)
             {
@@ -8306,10 +8306,10 @@ scan_number_done:
         }
         else if (number_type == token_type::value_integer)
         {
-            const auto x = std::strtoll(token_buffer.data(), &endptr, 10);
+            const auto x = std::strtoll(reinterpret_cast<char*>(token_buffer.data()), &endptr, 10);
 
             // we checked the number format before
-            assert(endptr == token_buffer.data() + token_buffer.size());
+            assert(endptr == reinterpret_cast<char*>(token_buffer.data()) + token_buffer.size());
 
             if (errno == 0)
             {
@@ -8323,10 +8323,10 @@ scan_number_done:
 
         // this code is reached if we parse a floating-point number or if an
         // integer conversion above failed
-        strtof(value_float, token_buffer.data(), &endptr);
+        strtof(value_float, reinterpret_cast<char*>(token_buffer.data()), &endptr);
 
         // we checked the number format before
-        assert(endptr == token_buffer.data() + token_buffer.size());
+        assert(endptr == reinterpret_cast<char*>(token_buffer.data()) + token_buffer.size());
 
         return token_type::value_float;
     }
@@ -13187,7 +13187,7 @@ inline int find_largest_pow10(const std::uint32_t n, std::uint32_t& pow10)
     }
 }
 
-inline void grisu2_round(char* buf, int len, std::uint64_t dist, std::uint64_t delta,
+inline void grisu2_round(char8_t* buf, int len, std::uint64_t dist, std::uint64_t delta,
                          std::uint64_t rest, std::uint64_t ten_k)
 {
     assert(len >= 1);
@@ -13228,7 +13228,7 @@ inline void grisu2_round(char* buf, int len, std::uint64_t dist, std::uint64_t d
 Generates V = buffer * 10^decimal_exponent, such that M- <= V <= M+.
 M- and M+ must be normalized and share the same exponent -60 <= e <= -32.
 */
-inline void grisu2_digit_gen(char* buffer, int& length, int& decimal_exponent,
+inline void grisu2_digit_gen(char8_t* buffer, int& length, int& decimal_exponent,
                              diyfp M_minus, diyfp w, diyfp M_plus)
 {
     static_assert(kAlpha >= -60, "internal error");
@@ -13469,7 +13469,7 @@ len is the length of the buffer (number of decimal digits)
 The buffer must be large enough, i.e. >= max_digits10.
 */
 JSON_HEDLEY_NON_NULL(1)
-inline void grisu2(char* buf, int& len, int& decimal_exponent,
+inline void grisu2(char8_t* buf, int& len, int& decimal_exponent,
                    diyfp m_minus, diyfp v, diyfp m_plus)
 {
     assert(m_plus.e == m_minus.e);
@@ -13529,7 +13529,7 @@ The buffer must be large enough, i.e. >= max_digits10.
 */
 template <typename FloatType>
 JSON_HEDLEY_NON_NULL(1)
-void grisu2(char* buf, int& len, int& decimal_exponent, FloatType value)
+void grisu2(char8_t* buf, int& len, int& decimal_exponent, FloatType value)
 {
     static_assert(diyfp::kPrecision >= std::numeric_limits<FloatType>::digits + 3,
                   "internal error: not enough precision");
@@ -13569,7 +13569,7 @@ void grisu2(char* buf, int& len, int& decimal_exponent, FloatType value)
 */
 JSON_HEDLEY_NON_NULL(1)
 JSON_HEDLEY_RETURNS_NON_NULL
-inline char* append_exponent(char* buf, int e)
+inline char8_t* append_exponent(char8_t* buf, int e)
 {
     assert(e > -1000);
     assert(e <  1000);
@@ -13590,21 +13590,21 @@ inline char* append_exponent(char* buf, int e)
         // Always print at least two digits in the exponent.
         // This is for compatibility with printf("%g").
         *buf++ = '0';
-        *buf++ = static_cast<char>('0' + k);
+        *buf++ = static_cast<char8_t>('0' + k);
     }
     else if (k < 100)
     {
-        *buf++ = static_cast<char>('0' + k / 10);
+        *buf++ = static_cast<char8_t>('0' + k / 10);
         k %= 10;
-        *buf++ = static_cast<char>('0' + k);
+        *buf++ = static_cast<char8_t>('0' + k);
     }
     else
     {
-        *buf++ = static_cast<char>('0' + k / 100);
+        *buf++ = static_cast<char8_t>('0' + k / 100);
         k %= 100;
-        *buf++ = static_cast<char>('0' + k / 10);
+        *buf++ = static_cast<char8_t>('0' + k / 10);
         k %= 10;
-        *buf++ = static_cast<char>('0' + k);
+        *buf++ = static_cast<char8_t>('0' + k);
     }
 
     return buf;
@@ -13621,7 +13621,7 @@ notation. Otherwise it will be printed in exponential notation.
 */
 JSON_HEDLEY_NON_NULL(1)
 JSON_HEDLEY_RETURNS_NON_NULL
-inline char* format_buffer(char* buf, int len, int decimal_exponent,
+inline char8_t* format_buffer(char8_t* buf, int len, int decimal_exponent,
                            int min_exp, int max_exp)
 {
     assert(min_exp < 0);
@@ -13706,7 +13706,7 @@ format. Returns an iterator pointing past-the-end of the decimal representation.
 template <typename FloatType>
 JSON_HEDLEY_NON_NULL(1, 2)
 JSON_HEDLEY_RETURNS_NON_NULL
-char* to_chars(char* first, const char* last, FloatType value)
+char8_t* to_chars(char8_t* first, const char8_t* last, FloatType value)
 {
     static_cast<void>(last); // maybe unused - fix warning
     assert(std::isfinite(value));
@@ -13799,7 +13799,7 @@ class serializer
     @param[in] ichar  indentation character to use
     @param[in] error_handler_  how to react on decoding errors
     */
-    serializer(output_adapter_t<char> s, const char ichar,
+    serializer(output_adapter_t<char8_t> s, const char ichar,
                error_handler_t error_handler_ = error_handler_t::strict)
         : o(std::move(s))
         , loc(std::localeconv())
@@ -13845,13 +13845,13 @@ class serializer
             {
                 if (val.m_value.object->empty())
                 {
-                    o->write_characters("{}", 2);
+                    o->write_characters(u8"{}", 2);
                     return;
                 }
 
                 if (pretty_print)
                 {
-                    o->write_characters("{\n", 2);
+                    o->write_characters(u8"{\n", 2);
 
                     // variable to hold indentation for recursive calls
                     const auto new_indent = current_indent + indent_step;
@@ -13865,50 +13865,50 @@ class serializer
                     for (std::size_t cnt = 0; cnt < val.m_value.object->size() - 1; ++cnt, ++i)
                     {
                         o->write_characters(indent_string.c_str(), new_indent);
-                        o->write_character('\"');
+                        o->write_character(u8'\"');
                         dump_escaped(i->first, ensure_ascii);
-                        o->write_characters("\": ", 3);
+                        o->write_characters(u8"\": ", 3);
                         dump(i->second, true, ensure_ascii, indent_step, new_indent);
-                        o->write_characters(",\n", 2);
+                        o->write_characters(u8",\n", 2);
                     }
 
                     // last element
                     assert(i != val.m_value.object->cend());
                     assert(std::next(i) == val.m_value.object->cend());
                     o->write_characters(indent_string.c_str(), new_indent);
-                    o->write_character('\"');
+                    o->write_character(u8'\"');
                     dump_escaped(i->first, ensure_ascii);
-                    o->write_characters("\": ", 3);
+                    o->write_characters(u8"\": ", 3);
                     dump(i->second, true, ensure_ascii, indent_step, new_indent);
 
-                    o->write_character('\n');
+                    o->write_character(u8'\n');
                     o->write_characters(indent_string.c_str(), current_indent);
-                    o->write_character('}');
+                    o->write_character(u8'}');
                 }
                 else
                 {
-                    o->write_character('{');
+                    o->write_character(u8'{');
 
                     // first n-1 elements
                     auto i = val.m_value.object->cbegin();
                     for (std::size_t cnt = 0; cnt < val.m_value.object->size() - 1; ++cnt, ++i)
                     {
-                        o->write_character('\"');
+                        o->write_character(u8'\"');
                         dump_escaped(i->first, ensure_ascii);
-                        o->write_characters("\":", 2);
+                        o->write_characters(u8"\":", 2);
                         dump(i->second, false, ensure_ascii, indent_step, current_indent);
-                        o->write_character(',');
+                        o->write_character(u8',');
                     }
 
                     // last element
                     assert(i != val.m_value.object->cend());
                     assert(std::next(i) == val.m_value.object->cend());
-                    o->write_character('\"');
+                    o->write_character(u8'\"');
                     dump_escaped(i->first, ensure_ascii);
-                    o->write_characters("\":", 2);
+                    o->write_characters(u8"\":", 2);
                     dump(i->second, false, ensure_ascii, indent_step, current_indent);
 
-                    o->write_character('}');
+                    o->write_character(u8'}');
                 }
 
                 return;
@@ -13918,19 +13918,19 @@ class serializer
             {
                 if (val.m_value.array->empty())
                 {
-                    o->write_characters("[]", 2);
+                    o->write_characters(u8"[]", 2);
                     return;
                 }
 
                 if (pretty_print)
                 {
-                    o->write_characters("[\n", 2);
+                    o->write_characters(u8"[\n", 2);
 
                     // variable to hold indentation for recursive calls
                     const auto new_indent = current_indent + indent_step;
                     if (JSON_HEDLEY_UNLIKELY(indent_string.size() < new_indent))
                     {
-                        indent_string.resize(indent_string.size() * 2, ' ');
+                        indent_string.resize(indent_string.size() * 2, u8' ');
                     }
 
                     // first n-1 elements
@@ -13939,7 +13939,7 @@ class serializer
                     {
                         o->write_characters(indent_string.c_str(), new_indent);
                         dump(*i, true, ensure_ascii, indent_step, new_indent);
-                        o->write_characters(",\n", 2);
+                        o->write_characters(u8",\n", 2);
                     }
 
                     // last element
@@ -13947,27 +13947,27 @@ class serializer
                     o->write_characters(indent_string.c_str(), new_indent);
                     dump(val.m_value.array->back(), true, ensure_ascii, indent_step, new_indent);
 
-                    o->write_character('\n');
+                    o->write_character(u8'\n');
                     o->write_characters(indent_string.c_str(), current_indent);
-                    o->write_character(']');
+                    o->write_character(u8']');
                 }
                 else
                 {
-                    o->write_character('[');
+                    o->write_character(u8'[');
 
                     // first n-1 elements
                     for (auto i = val.m_value.array->cbegin();
                             i != val.m_value.array->cend() - 1; ++i)
                     {
                         dump(*i, false, ensure_ascii, indent_step, current_indent);
-                        o->write_character(',');
+                        o->write_character(u8',');
                     }
 
                     // last element
                     assert(not val.m_value.array->empty());
                     dump(val.m_value.array->back(), false, ensure_ascii, indent_step, current_indent);
 
-                    o->write_character(']');
+                    o->write_character(u8']');
                 }
 
                 return;
@@ -13975,9 +13975,9 @@ class serializer
 
             case value_t::string:
             {
-                o->write_character('\"');
+                o->write_character(u8'\"');
                 dump_escaped(*val.m_value.string, ensure_ascii);
-                o->write_character('\"');
+                o->write_character(u8'\"');
                 return;
             }
 
@@ -13985,11 +13985,11 @@ class serializer
             {
                 if (val.m_value.boolean)
                 {
-                    o->write_characters("true", 4);
+                    o->write_characters(u8"true", 4);
                 }
                 else
                 {
-                    o->write_characters("false", 5);
+                    o->write_characters(u8"false", 5);
                 }
                 return;
             }
@@ -14014,13 +14014,13 @@ class serializer
 
             case value_t::discarded:
             {
-                o->write_characters("<discarded>", 11);
+                o->write_characters(u8"<discarded>", 11);
                 return;
             }
 
             case value_t::null:
             {
-                o->write_characters("null", 4);
+                o->write_characters(u8"null", 4);
                 return;
             }
 
@@ -14066,50 +14066,50 @@ class serializer
                     {
                         case 0x08: // backspace
                         {
-                            string_buffer[bytes++] = '\\';
-                            string_buffer[bytes++] = 'b';
+                            string_buffer[bytes++] = u8'\\';
+                            string_buffer[bytes++] = u8'b';
                             break;
                         }
 
                         case 0x09: // horizontal tab
                         {
-                            string_buffer[bytes++] = '\\';
-                            string_buffer[bytes++] = 't';
+                            string_buffer[bytes++] = u8'\\';
+                            string_buffer[bytes++] = u8't';
                             break;
                         }
 
                         case 0x0A: // newline
                         {
-                            string_buffer[bytes++] = '\\';
-                            string_buffer[bytes++] = 'n';
+                            string_buffer[bytes++] = u8'\\';
+                            string_buffer[bytes++] = u8'n';
                             break;
                         }
 
                         case 0x0C: // formfeed
                         {
-                            string_buffer[bytes++] = '\\';
-                            string_buffer[bytes++] = 'f';
+                            string_buffer[bytes++] = u8'\\';
+                            string_buffer[bytes++] = u8'f';
                             break;
                         }
 
-                        case 0x0D: // carriage return
+                        case 0x0D: // carriage returnu8
                         {
-                            string_buffer[bytes++] = '\\';
-                            string_buffer[bytes++] = 'r';
+                            string_buffer[bytes++] = u8'\\';
+                            string_buffer[bytes++] = u8'r';
                             break;
                         }
 
                         case 0x22: // quotation mark
                         {
-                            string_buffer[bytes++] = '\\';
-                            string_buffer[bytes++] = '\"';
+                            string_buffer[bytes++] = u8'\\';
+                            string_buffer[bytes++] = u8'\"';
                             break;
                         }
 
-                        case 0x5C: // reverse solidus
+                        case 0x5C: // reverse solidusu8
                         {
-                            string_buffer[bytes++] = '\\';
-                            string_buffer[bytes++] = '\\';
+                            string_buffer[bytes++] = u8'\\';
+                            string_buffer[bytes++] = u8'\\';
                             break;
                         }
 
@@ -14121,13 +14121,13 @@ class serializer
                             {
                                 if (codepoint <= 0xFFFF)
                                 {
-                                    (std::snprintf)(string_buffer.data() + bytes, 7, "\\u%04x",
+                                    (std::snprintf)(reinterpret_cast<char* const>(string_buffer.data()) + bytes, 7, "\\u%04x",
                                                     static_cast<std::uint16_t>(codepoint));
                                     bytes += 6;
                                 }
                                 else
                                 {
-                                    (std::snprintf)(string_buffer.data() + bytes, 13, "\\u%04x\\u%04x",
+                                    (std::snprintf)(reinterpret_cast<char* const>(string_buffer.data()) + bytes, 13, "\\u%04x\\u%04x",
                                                     static_cast<std::uint16_t>(0xD7C0u + (codepoint >> 10u)),
                                                     static_cast<std::uint16_t>(0xDC00u + (codepoint & 0x3FFu)));
                                     bytes += 12;
@@ -14190,18 +14190,18 @@ class serializer
                                 // add a replacement character
                                 if (ensure_ascii)
                                 {
-                                    string_buffer[bytes++] = '\\';
-                                    string_buffer[bytes++] = 'u';
-                                    string_buffer[bytes++] = 'f';
-                                    string_buffer[bytes++] = 'f';
-                                    string_buffer[bytes++] = 'f';
-                                    string_buffer[bytes++] = 'd';
+                                    string_buffer[bytes++] = u8'\\';
+                                    string_buffer[bytes++] = u8'u';
+                                    string_buffer[bytes++] = u8'f';
+                                    string_buffer[bytes++] = u8'f';
+                                    string_buffer[bytes++] = u8'f';
+                                    string_buffer[bytes++] = u8'd';
                                 }
                                 else
                                 {
-                                    string_buffer[bytes++] = detail::binary_writer<BasicJsonType, char>::to_char_type('\xEF');
-                                    string_buffer[bytes++] = detail::binary_writer<BasicJsonType, char>::to_char_type('\xBF');
-                                    string_buffer[bytes++] = detail::binary_writer<BasicJsonType, char>::to_char_type('\xBD');
+                                    string_buffer[bytes++] = detail::binary_writer<BasicJsonType, char8_t>::to_char_type('\xEF');
+                                    string_buffer[bytes++] = detail::binary_writer<BasicJsonType, char8_t>::to_char_type('\xBF');
+                                    string_buffer[bytes++] = detail::binary_writer<BasicJsonType, char8_t>::to_char_type('\xBD');
                                 }
 
                                 // write buffer and reset index; there must be 13 bytes
@@ -14277,11 +14277,11 @@ class serializer
                     // add a replacement character
                     if (ensure_ascii)
                     {
-                        o->write_characters("\\ufffd", 6);
+                        o->write_characters(u8"\\ufffd", 6);
                     }
                     else
                     {
-                        o->write_characters("\xEF\xBF\xBD", 3);
+                        o->write_characters(u8"\xEF\xBF\xBD", 3);
                     }
                     break;
                 }
@@ -14430,7 +14430,7 @@ class serializer
         // NaN / inf
         if (not std::isfinite(x))
         {
-            o->write_characters("null", 4);
+            o->write_characters(u8"null", 4);
             return;
         }
 
@@ -14448,8 +14448,8 @@ class serializer
 
     void dump_float(number_float_t x, std::true_type /*is_ieee_single_or_double*/)
     {
-        char* begin = number_buffer.data();
-        char* end = ::nlohmann::detail::to_chars(begin, begin + number_buffer.size(), x);
+        char8_t* begin = number_buffer.data();
+        char8_t* end = ::nlohmann::detail::to_chars(begin, begin + number_buffer.size(), x);
 
         o->write_characters(begin, static_cast<size_t>(end - begin));
     }
@@ -14584,10 +14584,10 @@ class serializer
 
   private:
     /// the output of the serializer
-    output_adapter_t<char> o = nullptr;
+    output_adapter_t<char8_t> o = nullptr;
 
     /// a (hopefully) large enough character buffer
-    std::array<char, 64> number_buffer{{}};
+    std::array<char8_t, 64> number_buffer{{}};
 
     /// the locale
     const std::lconv* loc = nullptr;
@@ -14597,10 +14597,10 @@ class serializer
     const char decimal_point = '\0';
 
     /// string buffer
-    std::array<char, 512> string_buffer{{}};
+    std::array<char8_t, 512> string_buffer{{}};
 
     /// the indentation character
-    const char indent_char;
+    const char8_t indent_char;
     /// the indentation string
     string_t indent_string;
 
@@ -15457,7 +15457,7 @@ class basic_json
 
                 case value_t::string:
                 {
-                    string = create<string_t>("");
+                    string = create<string_t>(u8"");
                     break;
                 }
 
@@ -16563,7 +16563,7 @@ class basic_json
                   const error_handler_t error_handler = error_handler_t::strict) const
     {
         string_t result;
-        serializer s(detail::output_adapter<char, string_t>(result), indent_char, error_handler);
+        serializer s(detail::output_adapter<char8_t, string_t>(result), indent_char, error_handler);
 
         if (indent >= 0)
         {
@@ -22840,7 +22840,7 @@ inline nlohmann::json::json_pointer operator "" _json_pointer(const char* s, std
 #undef JSON_HEDLEY_PRIVATE
 #undef JSON_HEDLEY_PUBLIC
 #undef JSON_HEDLEY_PURE
-#undef JSON_HEDLEY_REINTERPRET_CAST
+#undef JSON_HEDLEY_REINTERPRET_CASTgg
 #undef JSON_HEDLEY_REQUIRE
 #undef JSON_HEDLEY_REQUIRE_CONSTEXPR
 #undef JSON_HEDLEY_REQUIRE_MSG
